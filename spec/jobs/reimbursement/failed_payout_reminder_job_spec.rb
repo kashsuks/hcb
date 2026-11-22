@@ -34,6 +34,13 @@ RSpec.describe Reimbursement::FailedPayoutReminderJob, versioning: true do
       .not_to have_enqueued_mail(ReimbursementMailer, :failed_payout_reminder)
   end
 
+  it "skips payouts whose report was deleted" do
+    report.update_columns(deleted_at: Time.current)
+
+    expect { described_class.perform_now(payout_holding.reload, 3, payout_holding.current_failure_id) }
+      .not_to have_enqueued_mail(ReimbursementMailer, :failed_payout_reminder)
+  end
+
   it "skips reminders from an earlier failure" do
     first_failure_id = payout_holding.current_failure_id
     payout_holding.mark_settled!

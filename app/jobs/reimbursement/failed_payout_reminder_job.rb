@@ -10,7 +10,7 @@ module Reimbursement
       return unless payout_holding.current_failure_id == failure_id
 
       report = payout_holding.report
-      return if report.reversed? || report.deleted?
+      return if report.nil? || report.reversed?
 
       ReimbursementMailer.with(reimbursement_payout_holding: payout_holding, days:).failed_payout_reminder.deliver_later
     end
