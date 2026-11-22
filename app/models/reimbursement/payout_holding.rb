@@ -87,7 +87,7 @@ module Reimbursement
       end
 
       event :mark_failed do
-        after do
+        after_commit do
           failure_id = current_failure_id
           next if failure_id.nil?
 
