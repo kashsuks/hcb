@@ -1,0 +1,12 @@
+<%# locals: (activity:, p:, current_user: nil, **) %>
+
+<% current_user ||= p[:current_user] %>
+
+<% if activity.trackable.present? %>
+  <%= render layout: "/public_activity/common", locals: { activity:, current_user:, url: reimbursement_report_path(activity.trackable) } do %>
+    submitted <i><%= link_to activity.trackable.name, activity.trackable %></i> for reimbursement
+    <% if activity.trackable.event %>
+      from <%= link_to activity.trackable.event.name, activity.trackable.event %>
+    <% end %>
+  <% end %>
+<% end %>

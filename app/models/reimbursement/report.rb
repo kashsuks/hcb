@@ -143,6 +143,7 @@ module Reimbursement
             ReimbursementMailer.with(report: self).review_requested.deliver_later
             create_activity(key: "reimbursement_report.review_requested", owner: user, recipient: reviewer.presence || event, event_id: event.id)
           else
+            create_activity(key: "reimbursement_report.submitted", owner: user, recipient: event, event_id: event.id)
             expenses.pending.each do |expense|
               expense.mark_approved!
             end
