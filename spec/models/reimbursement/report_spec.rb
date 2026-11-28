@@ -266,5 +266,109 @@ RSpec.describe Reimbursement::Report, type: :model do
       expect(hcb_code.ledger_item.receipts.count).to eq(1)
       expect(Receipt.where(receiptable: hcb_code)).to be_empty
     end
+
+    it "doesn't email the submitter that the report was rejected" do
+      report.expenses.create!(value: 12.34, memo: "Stickers", aasm_state: :approved)
+
+      expect { report.convert_to_wise_transfer!(as: user) }.not_to have_enqueued_mail(ReimbursementMailer, :rejected)
+    end
+
+    it "doesn't log the report as rejected" do
+      report.expenses.create!(value: 12.34, memo: "Stickers", aasm_state: :approved)
+
+      PublicActivity.with_tracking { report.convert_to_wise_transfer!(as: user) }
+
+      expect(report.reload).to be_rejected
+      expect(PublicActivity::Activity.where(trackable: report, key: "reimbursement_report.rejected")).to be_empty
+    end
+  end
+
+  describe "activity tracking" do
+    let(:user) { create(:user) }
+    let(:event) { create(:event, :with_positive_balance, organizers: [user]) }
+    let(:system_user) { create(:user, email: User::SYSTEM_USER_EMAIL) }
+    let(:report) do
+      user.personal_legal_entity.payout_methods.create!(default: true, details: build_ach)
+      create(:reimbursement_report, user:, event:)
+    end
+
+    before { allow(User).to receive(:system_user).and_return(system_user) }
+
+    around { |example| PublicActivity.with_tracking { example.run } }
+
+    def activities(key)
+      PublicActivity::Activity.where(trackable: report, key: "reimbursement_report.#{key}")
+    end
+
+    describe "submitting" do
+      before do
+        expense = report.expenses.create!(value: 12.34, memo: "Stickers", category: "Project Supplies")
+        ReceiptService::Create.new(
+          receiptable: expense,
+          uploader: user,
+          attachments: [file_fixture("receipt.png")],
+          upload_method: :receipts_page
+        ).run!
+      end
+
+      it "logs a submitted activity when no team review is needed" do
+        report.mark_submitted!
+
+        expect(activities(:submitted).sole).to have_attributes(owner: user, recipient: event, event_id: event.id)
+        expect(activities(:review_requested)).to be_empty
+      end
+
+      it "logs only a review request when team review is needed" do
+        event.update!(reimbursements_require_organizer_peer_review: true)
+        create(:organizer_position, event:)
+
+        report.mark_submitted!
+
+        expect(activities(:review_requested).count).to eq(1)
+        expect(activities(:submitted)).to be_empty
+      end
+    end
+
+    it "logs an approved activity that feeds can show" do
+      report.update_columns(aasm_state: "reimbursement_requested")
+      report.expenses.create!(value: 12.34, memo: "Stickers", category: "Project Supplies", aasm_state: :approved)
+      allow(report).to receive(:reimburse!)
+
+      report.mark_reimbursement_approved!
+
+      expect(activities(:approved).sole).to have_attributes(owner: user, recipient: user, event_id: event.id)
+    end
+
+    describe "rejecting" do
+      it "logs a rejected activity owned by whoever rejected it" do
+        rejecter = create(:user)
+
+        report.mark_rejected!(rejected_by: rejecter)
+
+        expect(activities(:rejected).sole).to have_attributes(owner: rejecter, recipient: user, event_id: event.id)
+      end
+
+      it "attributes the rejection to the system user when no one is given" do
+        report.mark_rejected!
+
+        expect(activities(:rejected).sole.owner).to eq(system_user)
+      end
+    end
+
+    it "logs a reimbursed activity when the payout is created" do
+      report.update_columns(aasm_state: "reimbursement_approved")
+
+      report.mark_reimbursed!
+
+      expect(activities(:reimbursed).sole).to have_attributes(owner: user, recipient: user, event_id: event.id)
+    end
+
+    it "logs a reversed activity when the payout fails" do
+      report.update_columns(aasm_state: "reimbursed")
+
+      report.mark_reversed!
+
+      expect(activities(:reversed).sole).to have_attributes(owner: user, recipient: user, event_id: event.id)
+    end
   end
 end
