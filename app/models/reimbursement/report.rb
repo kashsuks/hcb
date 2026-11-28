@@ -170,7 +170,7 @@ module Reimbursement
         end
         after do
           ReimbursementMailer.with(report: self).reimbursement_approved.deliver_later
-          create_activity(key: "reimbursement_report.approved", owner: user)
+          create_activity(key: "reimbursement_report.approved", owner: user, recipient: user, event_id: event&.id)
           reimburse!
         end
       end
