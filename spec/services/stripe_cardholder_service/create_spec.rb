@@ -56,5 +56,16 @@ RSpec.describe StripeCardholderService::Create do
 
       expect(cardholder.stripe_phone_number).to be_nil
     end
+
+    it "raises a non-Latin error before reaching Stripe when the preferred name isn't Latin" do
+      user = create(:user, phone_number: "+18556254225")
+      user.update_columns(phone_number_verified: true, preferred_name: "小明")
+
+      expect(StripeService::Issuing::Cardholder).not_to receive(:create)
+
+      expect { described_class.new(current_user: user, ip_address:, event_id: event.id).run }
+        .to raise_error(Errors::StripeNonLatinNameError, /preferred name contains characters outside the Latin alphabet/)
+      expect(StripeCardholder.where(user:)).to be_empty
+    end
   end
 end

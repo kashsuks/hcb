@@ -107,4 +107,30 @@ RSpec.describe StripeCardholder, type: :model do
       expect(StripeCardholder.phone_number_supported?("919876543210")).to eq(false)
     end
   end
+
+  describe ".clean_name" do
+    it "transliterates accented Latin letters" do
+      expect(StripeCardholder.clean_name("José Núñez")).to eq("Jose Nunez")
+    end
+
+    it "names the field and characters when the name has non-Latin letters" do
+      expect { StripeCardholder.clean_name("李 Smith", field: "legal first name") }
+        .to raise_error(Errors::StripeNonLatinNameError, /legal first name contains characters outside the Latin alphabet \(李\)/)
+    end
+
+    it "still raises the general name error when no letters are left" do
+      expect { StripeCardholder.clean_name("123 !!!") }
+        .to raise_error(Errors::StripeInvalidNameError, /must contain at least 1 letter/)
+    end
+  end
+
+  describe ".first_name" do
+    it "raises a non-Latin error for a legal name in another script" do
+      user = create(:user)
+      user.update_column(:full_name, "Иван Петров")
+
+      expect { StripeCardholder.first_name(user) }
+        .to raise_error(Errors::StripeNonLatinNameError, /legal first name/)
+    end
+  end
 end
