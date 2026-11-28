@@ -182,6 +182,9 @@ module Reimbursement
         # unpack into keyword arguments, so read them from `options` instead.
         after do |options = {}|
           ReimbursementMailer.with(report: self).rejected.deliver_later unless options[:skip_mailer]
+          if options.fetch(:track_activity, true)
+            create_activity(key: "reimbursement_report.rejected", owner: options[:rejected_by] || User.system_user, recipient: user, event_id: event&.id)
+          end
         end
       end
 
@@ -455,7 +458,7 @@ module Reimbursement
 
         transfer.local_hcb_code.comments.create!(content: "Created from reimbursement report #{Rails.application.routes.url_helpers.reimbursement_report_url(hashid)}", user: User.system_user)
 
-        mark_rejected!(skip_mailer: true)
+        mark_rejected!(skip_mailer: true, track_activity: false)
 
         transfer
       end

@@ -1,0 +1,18 @@
+<%# locals: (activity:, p:, current_user: nil, **) %>
+
+<% current_user ||= p[:current_user] %>
+
+<% if activity.trackable.present? %>
+  <%= render layout: "/public_activity/common", locals: { activity:, current_user:, url: reimbursement_report_path(activity.trackable) } do %>
+    rejected
+    <% if activity.trackable.user == current_user %>
+      your report
+    <% elsif activity.trackable.user != activity.owner %>
+      <span class="muted"><%= activity.trackable.user&.name || "a user" %></span>'s report
+    <% end %>
+    <i><%= link_to activity.trackable.name, activity.trackable %></i>
+    <% if activity.trackable.event %>
+      on <%= link_to activity.trackable.event.name, activity.trackable.event %>
+    <% end %>
+  <% end %>
+<% end %>

@@ -396,7 +396,7 @@ module Reimbursement
       authorize @report
 
       begin
-        @report.mark_rejected!
+        @report.mark_rejected!(rejected_by: current_user)
         flash[:success] = "Rejected & closed the report; no further changes can be made."
       rescue => e
         flash[:error] = e.message
