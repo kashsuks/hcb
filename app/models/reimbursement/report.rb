@@ -178,8 +178,10 @@ module Reimbursement
 
       event :mark_rejected do
         transitions from: [:draft, :submitted, :reimbursement_requested], to: :rejected
-        after do |skip_mailer: false|
-          ReimbursementMailer.with(report: self).rejected.deliver_later unless skip_mailer
+        # AASM passes event arguments as one positional hash, which a block won't
+        # unpack into keyword arguments, so read them from `options` instead.
+        after do |options = {}|
+          ReimbursementMailer.with(report: self).rejected.deliver_later unless options[:skip_mailer]
         end
       end
 
