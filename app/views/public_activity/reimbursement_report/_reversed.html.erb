@@ -1,0 +1,14 @@
+<%# locals: (activity:, p:, current_user: nil, **) %>
+
+<% current_user ||= p[:current_user] %>
+
+<% if activity.trackable.present? %>
+  <%= render layout: "/public_activity/common", locals: { activity:, current_user:, url: reimbursement_report_path(activity.trackable), possessive: true } do %>
+    reimbursement for <i><%= link_to activity.trackable.name, activity.trackable %></i> failed, so the money went back to
+    <% if activity.trackable.event %>
+      <%= link_to activity.trackable.event.name, activity.trackable.event %>
+    <% else %>
+      the organization
+    <% end %>
+  <% end %>
+<% end %>

@@ -198,10 +198,16 @@ module Reimbursement
 
       event :mark_reimbursed do
         transitions from: :reimbursement_approved, to: :reimbursed
+        after do
+          create_activity(key: "reimbursement_report.reimbursed", owner: user, recipient: user, event_id: event&.id)
+        end
       end
 
       event :mark_reversed do
         transitions from: :reimbursed, to: :reversed
+        after do
+          create_activity(key: "reimbursement_report.reversed", owner: user, recipient: user, event_id: event&.id)
+        end
       end
     end
 
