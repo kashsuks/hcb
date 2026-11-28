@@ -66,7 +66,12 @@ module StripeCardholderService
     end
 
     def name
-      @current_user.safe_name
+      @name ||= begin
+        name = @current_user.safe_name
+        field = @current_user.preferred_name.present? ? "preferred name" : "legal name"
+        StripeCardholder.ensure_latin_name!(name, field:)
+        name
+      end
     end
 
     def cardholder_type
