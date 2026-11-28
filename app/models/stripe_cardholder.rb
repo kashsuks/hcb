@@ -128,14 +128,30 @@ class StripeCardholder < ApplicationRecord
   end
 
   def self.first_name(user)
-    clean_name(user.first_name(legal: true))
+    clean_name(user.first_name(legal: true), field: "legal first name")
   end
 
   def self.last_name(user)
-    clean_name(user.last_name(legal: true))
+    clean_name(user.last_name(legal: true), field: "legal last name")
   end
 
-  def self.clean_name(name)
+  # Stripe only accepts Latin letters in cardholder names. Accented Latin
+  # letters (é, ñ, ø) are fine since they get transliterated, but letters from
+  # other scripts (李, Иван) can't be, so tell the user which name to fix.
+  def self.ensure_latin_name!(name, field: "name")
+    non_latin = name.to_s.scan(/[\p{L}&&\P{Latin}]/).uniq
+    return if non_latin.none?
+
+    raise Errors::StripeNonLatinNameError, <<~MSG.squish
+      Your #{field} contains characters outside the Latin alphabet
+      (#{non_latin.first(3).join(", ")}). Names on cards can only use Latin
+      letters, so please update your #{field} in your account settings.
+    MSG
+  end
+
+  def self.clean_name(name, field: "name")
+    ensure_latin_name!(name, field:)
+
     name = ActiveSupport::Inflector.transliterate(name || "")
 
     # Remove invalid characters
